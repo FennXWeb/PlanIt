@@ -29,6 +29,20 @@ export function topstockProgress(state,date){
  const aisles=state.aisles.filter(a=>a.topstock);
  return {total:aisles.length,done:aisles.filter(a=>done.has(a.id)).length,remaining:aisles.filter(a=>!done.has(a.id)),start,friday:addDays(start,4)};
 }
+export function aislePriorities(state,day,kind){
+ if(!['zone','topstock'].includes(kind))throw Error('Choose zoning or top stock.');
+ const eligible=kind==='topstock'?topstockProgress(state,day.date).remaining:state.aisles.filter(a=>!day.tasks.some(t=>t.kind==='zone'&&t.aisleId===a.id&&t.status==='done'));
+ return eligible.map(aisle=>({aisle,lastCompleted:lastAisleWork(state,aisle.id,kind,addDays(day.date,1)),task:day.tasks.find(t=>t.kind===kind&&t.aisleId===aisle.id)})).sort((a,b)=>a.lastCompleted.localeCompare(b.lastCompleted)||a.aisle.label.localeCompare(b.aisle.label,undefined,{numeric:true}));
+}
+export function addAislePriorities(state,day,kind,aisleIds){
+ if(day.reviewed)throw Error('This day is read-only after follow-up.');
+ const chosen=new Set(aisleIds),candidates=aislePriorities(state,day,kind),next=structuredClone(day);
+ for(const {aisle,task} of candidates){
+  if(!chosen.has(aisle.id)||task)continue;
+  next.tasks.push(taskBase({...routinePolicy(state.settings,kind),source:'priority',kind,aisleId:aisle.id,department:aisle.department,key:`priority:${kind}:${aisle.id}:${day.date}`,title:`${kind==='zone'?'Zone':'Top stock'} · ${aisle.label}`,minutes:kind==='zone'?aisle.zoneMinutes:aisle.topMinutes,window:kind==='zone'?{...state.settings.zoneWindow}:undefined,notes:aisle.description||''}));
+ }
+ return scheduleDay(state,next);
+}
 function windowForShift(window,shift){
  if(!window) return shiftBounds(shift);
  const b=shiftBounds(shift);
@@ -68,11 +82,11 @@ export function scheduleDay(state,day,{notBefore=0,reflowStarted=false}={}){
  const work=tasks.filter(t=>t.status!=='done'&&(t.status!=='in-progress'||reflowStarted)&&!t.locked).sort((a,b)=>{
   // Priority first, then earliest hard deadline. A tour zone inherits at least the
   // routine's scheduling priority so automatic aisle fill cannot displace it.
-  const tourZone=t=>t.kind==='zone'&&t.source==='tour';
+  const tourZone=t=>t.kind==='zone'&&['tour','priority'].includes(t.source);
   const routineRank=t=>{const id=t.kind==='outs'?'rfid':t.kind,index=state.settings.routineOrder?.indexOf(id)??-1;return index<0?null:1+(index+1)/(state.settings.routineOrder.length+1);};
-  const rank=t=>tourZone(t)?Math.min(PRIORITIES[t.priority]??2,routineRank(t)??PRIORITIES[zonePolicy.priority]):t.source==='routine'||t.source==='carry'?routineRank(t)??PRIORITIES[t.priority]??2:PRIORITIES[t.priority]??2;
+  const rank=t=>tourZone(t)?Math.min(PRIORITIES[t.priority]??2,routineRank(t)??PRIORITIES[zonePolicy.priority]):['routine','carry','priority'].includes(t.source)?routineRank(t)??PRIORITIES[t.priority]??2:PRIORITIES[t.priority]??2;
   const due=t=>tourZone(t)?Math.min(t.deadline??2880,zonePolicy.deadline??2880):t.deadline??2880;
-  const score=t=>(t.source==='tour'?-30:0)+(t.window?-20:0)+(t.kind==='zone'&&t.source==='routine'?15:0);
+  const score=t=>(['tour','priority'].includes(t.source)?-30:0)+(t.window?-20:0)+(t.kind==='zone'&&t.source==='routine'?15:0);
   return rank(a)-rank(b)||due(a)-due(b)||score(a)-score(b)||((a.window?.end??3000)-(b.window?.end??3000));
  });
  for(const t of work){

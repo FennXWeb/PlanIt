@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initialState,ROUTINES} from '../src/data.js';
-import {taskBase,scheduleDay,reconfigureShifts,replanPlannerMove,overlap,pauses} from '../src/engine.js';
+import {taskBase,scheduleDay,reconfigureShifts,replanPlannerMove,overlap,pauses,aislePriorities,addAislePriorities} from '../src/engine.js';
 import {validateState} from '../src/storage.js';
 const shift=(more={})=>({personId:'lead',start:420,end:960,mealStart:660,mealMinutes:60,breaks:[],...more});
 function fixture(){const state=initialState();state.profile={name:'Lead',leadId:'lead'};state.departments=[{id:'14',name:'Kitchen'}];state.team=[{id:'lead',name:'Lead',role:'Lead',active:true,departments:[]}];return {state,day:{date:'2026-09-15',reviewed:false,shifts:[shift()],tasks:[],tour:[],warnings:[]}};}
@@ -34,4 +34,19 @@ test('routine order round-trips through backups and rejects partial or duplicate
  const {state}=fixture();state.settings.routineOrder=ROUTINES.map(r=>r.id).reverse();assert.deepEqual(validateState(JSON.parse(JSON.stringify(state))).settings.routineOrder,state.settings.routineOrder);
  state.settings.routineOrder[0]=state.settings.routineOrder[1];assert.throws(()=>validateState(state),/valid PlanIt/);
  delete state.settings.routineOrder;assert.doesNotThrow(()=>validateState(state));
+});
+
+test('aisle priorities rank missing history first and omit completed weekly top stock',()=>{
+ const {state,day}=fixture();state.aisles=['a','b','c'].map(id=>({id,label:id,department:'14',description:'Shelf '+id,topstock:true,zoneMinutes:20,topMinutes:15}));
+ state.days=[{...day,date:'2026-09-14',tasks:[taskBase({kind:'zone',aisleId:'a',status:'done',progress:100}),taskBase({kind:'topstock',aisleId:'b',status:'done',progress:100})]},day];
+ assert.deepEqual(aislePriorities(state,day,'zone').map(r=>r.aisle.id),['b','c','a']);
+ assert.deepEqual(aislePriorities(state,day,'topstock').map(r=>r.aisle.id),['a','c']);
+});
+test('selected aisle priorities honor limits, persist without capacity and never duplicate',()=>{
+ const {state,day}=fixture();state.aisles=[{id:'a',label:'H1',department:'14',description:'Cookware',topstock:true,zoneMinutes:30,topMinutes:20}];
+ state.settings.zoneWindow={start:600,end:630};state.settings.routines.zone.deadline=610;
+ let next=addAislePriorities(state,day,'zone',['a','a']);assert.equal(next.tasks.length,1);assert.equal(next.tasks[0].segments.length,0);assert.ok(next.tasks[0].unscheduledReason);assert.equal(next.tasks[0].notes,'Cookware');
+ next=addAislePriorities(state,next,'zone',['a']);assert.equal(next.tasks.length,1);
+ next=addAislePriorities(state,next,'topstock',['a']);assert.equal(next.tasks.length,2);assert.equal(next.tasks[1].segments.length,1);assertFits(next);
+ assert.equal(day.tasks.length,0);assert.throws(()=>addAislePriorities(state,{...day,reviewed:true},'zone',['a']),/read-only/);
 });

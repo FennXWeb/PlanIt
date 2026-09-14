@@ -74,3 +74,5 @@ npm run build
 The preview is at `http://127.0.0.1:4173`. The build copies only public app assets to `dist/`. The GitHub Actions workflow tests, builds, and deploys `dist` to Pages on pushes to `main`, the release branch permitted by its Pages environment. Development uses `codex/planit`. Relative URLs support a repository subpath such as `/PlanIt/`. Set the repository Pages source to **GitHub Actions**.
 
 The optional WebMCP navigation tool opens views without returning any private workspace data. It is feature-detected and the app does not require it.
+
+The daily planner includes selectable zoning and top-stock priority lists. Zoning is ordered by oldest completion, with never-completed aisles first; top stock excludes aisles completed during the selected week. Select aisles and use **Add selected to plan**. Existing tasks are marked in the list and never duplicated. Explicitly added priorities stay visible if capacity is insufficient and use the configured aisle estimates, routine limits, and zoning window.
