@@ -120,6 +120,26 @@ test('Drive transport uses only private app-data scope and never puts tokens in 
  assert.equal(DRIVE_SCOPE,'https://www.googleapis.com/auth/drive.appdata');assert.equal((await api.account()).id,'account1');
  assert.ok(!calls[0].url.includes('test-access-token'));assert.equal(calls[0].options.headers.Authorization,'Bearer test-access-token');assert.equal(calls[0].options.credentials,'omit');assert.equal(calls[0].options.cache,'no-store');
 });
+test('Drive requests preserve the browser fetch receiver',async()=>{
+ const api=new GoogleDrive('token',3600,async function(){
+  if(this!==globalThis)throw new TypeError('Illegal invocation');
+  return {ok:true,status:200,json:async()=>({user:{permissionId:'account1'}})};
+ });
+ assert.equal((await api.account()).id,'account1');
+});
+
+test('Drive failures distinguish timeouts, network blocks, and invalid invocation',async()=>{
+ for(const [error,message] of [
+  [new DOMException('Aborted','AbortError'),/took too long/],
+  [new TypeError('Failed to fetch'),/connection or content blocker/],
+  [new TypeError('Illegal invocation'),/Update the app and reconnect/]
+ ]){
+  const api=new GoogleDrive('token',3600,async()=>{throw error;});
+  await assert.rejects(()=>api.account(),message);
+  assert.equal(api.token,'token');
+ }
+});
+
 test('expired or revoked authorization stops requests and requests reconnection',async()=>{
  let calls=0;const expired=new GoogleDrive('token',0,async()=>{calls++;});await assert.rejects(()=>expired.list(),e=>e.code==='auth');assert.equal(calls,0);
  const revoked=new GoogleDrive('token',3600,async()=>({ok:false,status:401}));await assert.rejects(()=>revoked.list(),e=>e.code==='auth');assert.equal(revoked.token,'');

@@ -24,7 +24,7 @@ export function authorizeGoogle(clientId){
  });
 }
 export class GoogleDrive {
- constructor(token,expiresIn=3600,fetcher=globalThis.fetch){this.token=token;this.expiresAt=Date.now()+Math.max(0,expiresIn-60)*1000;this.fetcher=fetcher;}
+ constructor(token,expiresIn=3600,fetcher=globalThis.fetch){this.token=token;this.expiresAt=Date.now()+Math.max(0,expiresIn-60)*1000;this.fetcher=fetcher.bind(globalThis);}
  disconnect(){this.token='';}
  async request(path,options={}){
   if(!this.token||Date.now()>=this.expiresAt){const e=Error('Google authorization expired · reconnect to sync. Local edits are safe.');e.code='auth';throw e;}
@@ -34,7 +34,14 @@ export class GoogleDrive {
    if(response.status===401){this.token='';const e=Error('Reconnect Google Drive to resume sync. Local edits are safe.');e.code='auth';throw e;}
    if(!response.ok)throw Error(response.status===403?'Google Drive denied access or storage is full. Check app permissions, account storage, and the site’s Drive setup.':response.status===429?'Google Drive is busy. Sync will retry; local edits are safe.':'Google Drive could not complete the request. Sync will retry; local edits are safe.');
    return response;
-  }catch(error){if(error.name==='AbortError'||error instanceof TypeError)throw Error('Unable to reach Google Drive. Local edits are safe; sync will retry when connected.');throw error;}
+  }catch(error){
+   if(error.name==='AbortError')throw Error('Google Drive took too long to respond. Try again. Local edits are safe.');
+   if(error instanceof TypeError){
+    if(/illegal invocation|incompatible receiver/i.test(error.message))throw Error('PlanIt could not start the Drive request. Update the app and reconnect. Local edits are safe.');
+    throw Error('The browser could not reach Google Drive. Check your connection or content blocker, then try again. Local edits are safe.');
+   }
+   throw error;
+  }
   finally{clearTimeout(timer);}
  }
  async account(){const data=await (await this.request('drive/v3/about?fields=user(permissionId,emailAddress)')).json();if(!data.user?.permissionId)throw Error('Google account could not be identified. Sync stopped.');return {id:data.user.permissionId,email:data.user.emailAddress||'Google account'};}
