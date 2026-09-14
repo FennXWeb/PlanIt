@@ -1,10 +1,10 @@
 # PlanIt
 
-A device-local daily planning app for Walmart team leads. Built for GitHub Pages with no backend, account, runtime dependencies, analytics, or external fonts.
+A daily planning app for Walmart team leads with local storage by default and optional Google Drive sync. Built for GitHub Pages with no app backend, build dependencies, analytics, or external fonts. Google sign-in is loaded on demand for optional cloud connections.
 
 ## Use
 
-1. Set up your name, responsible departments, aisle labels, optional aisle descriptions, top-stock checkboxes, and associates. Descriptions can also be edited in Aisles & departments and appear in aisle task details.
+1. Import a PlanIt JSON backup directly from the first-run wizard, connect an existing Google Drive workspace when configured, or set up your name, responsible departments, aisle labels, optional aisle descriptions, top-stock checkboxes, and associates. Descriptions can also be edited in Aisles & departments and appear in aisle task details.
 2. Enable and configure your routines. Each has an urgent, high, normal, or low priority, an estimate, and optional **Start no earlier than** / **Required finish by** limits. Sort the library by priority or its default order. Department labels are editable public reference data, not a live Walmart directory.
 3. Start a day with the people working, shifts, meal times, and optional rest breaks.
 4. Use the by-the-hour timeline or list to edit estimates, assign work, record progress and actual time, or pin a start time. Dragging a task also pins it; overlapping placements are rejected. On phones, use task details.
@@ -35,13 +35,25 @@ A device-local daily planning app for Walmart team leads. Built for GitHub Pages
 
 ## Privacy and storage
 
-Workspace records live in `localStorage` under `planit.workspace.v1`, with the previous valid save in `planit.recovery.v1`. They never go in requests, GitHub commits, the service-worker cache, URLs, or telemetry. The content security policy blocks page connection requests. Public app files are cached for offline use after the first visit. Updates activate when all app tabs close.
+Workspace records live in `localStorage` under `planit.workspace.v1`, with the previous valid save in `planit.recovery.v1`. Local use does not send workspace data to a server. Google Drive sync is optional and sends workspace snapshots directly to the chosen account's private application-data folder. Records never go into GitHub commits, URLs, telemetry, or the service-worker cache. Public app files are cached for offline use after the first visit. Updates activate when all app tabs close.
+
+Cloud connection metadata is separate (`planit.google-sync.v1`) and is not included in workspace exports. Access tokens stay in memory and are never persisted or exported. Conflict resolution keeps a local recovery copy under `planit.before-cloud-restore.v1`; Settings can export it. Importing a backup disconnects Drive so it cannot silently replace cloud work.
 
 Older v1 workspaces and backups receive empty aisle descriptions and optional limits, plus the previous default routine priorities. Names, saved task history, and existing plans are preserved during migration.
 
 Browser storage is local, not encrypted. Someone using the same browser profile can access it. Clearing browser data removes it. Export a private JSON backup from Settings; restoring validates its schema before asking to replace the workspace. If storage is unavailable, the app clearly identifies its temporary workspace. Multiple tabs cannot silently overwrite a newer revision.
 
-GitHub Pages receives ordinary HTTP request metadata. This is not a claim that hosting is anonymous. No Walmart credentials, internal services, or supplier API access are needed.
+GitHub Pages receives ordinary HTTP request metadata. This is not a claim that hosting is anonymous. No Walmart credentials, internal services, or supplier API access are needed. See [Privacy and storage](privacy.html) for the public storage disclosure.
+
+## Optional cloud sync
+
+The Google Drive integration is implemented but requires the site owner's one-time OAuth registration before sign-in is available. See [CLOUD_SETUP.md](CLOUD_SETUP.md). Set the public `GOOGLE_CLIENT_ID` repository variable and rerun the Pages workflow; no client secret is used.
+
+After connection on each device, saved edits sync after five seconds, with checks every 30 seconds while visible and on focus / reconnection. The same Google account is required. Offline work stays local until a successful sync. Expired authorization requires a user-initiated reconnect; the app cannot sync while closed. Initial cloud restoration waits until open forms are closed.
+
+Each upload creates an immutable version. Parallel edits create conflicting heads rather than overwriting a single file. The user chooses a complete workspace to continue with; automatic field-level merging is not attempted. Prior cloud versions remain for recovery and consume Drive storage. Snapshots are capped at 4 MB, and listings stop safely above 10,000 records. Cloud quota or permission errors never discard local work. Token expiry, concurrent edits, failed downloads, account changes, and recovery are covered by mocked provider tests; live two-device OAuth testing remains dependent on the real app registration.
+
+iCloud Drive is supported through manual JSON backup import/export in the device file picker where available. Automatic iCloud sync is not implemented; it would require a separate Apple CloudKit integration.
 
 ## Public data and assumptions
 

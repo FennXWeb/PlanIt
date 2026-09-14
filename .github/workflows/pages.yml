@@ -25,6 +25,8 @@ jobs:
         run: npm test
       - name: Build static app
         run: npm run build
+        env:
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
