@@ -166,4 +166,3 @@ export function personMetrics(state,id,from='',to='9999-12-31'){
  const zones=tasks.filter(t=>t.kind==='zone'),done=tasks.filter(t=>t.status==='done'),timed=done.filter(t=>t.actualMinutes>0);
  return {tasks:tasks.length,done:done.length,completion:tasks.length?Math.round(done.length/tasks.length*100):null,zone:zones.length?Math.round(zones.reduce((s,t)=>s+(t.progress||0),0)/zones.length):null,zones:zones.length,topstock:done.filter(t=>t.kind==='topstock').length,carry:tasks.filter(t=>t.source==='carry').length,plannedMinutes:tasks.reduce((s,t)=>s+t.minutes,0),actualRatio:timed.length?Math.round(timed.reduce((s,t)=>s+t.actualMinutes,0)/timed.reduce((s,t)=>s+t.minutes,0)*100):null,timed:timed.length,shifts:days.filter(d=>d.shifts.some(s=>s.personId===id)).length};
 }
-

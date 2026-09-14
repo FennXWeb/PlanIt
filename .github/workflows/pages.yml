@@ -1,7 +1,7 @@
 name: Deploy PlanIt to GitHub Pages
 on:
   push:
-    branches: [codex/planit]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
