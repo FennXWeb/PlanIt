@@ -21,6 +21,7 @@ export function validateState(raw){
  if(!list(raw.team,200)||!raw.team.length||raw.team.some(p=>!isObj(p)||!str(p.id,100)||!str(p.name,100)||!str(p.role,100)||typeof p.active!=='boolean'||!list(p.departments,120)||p.departments.some(d=>!str(d,20))))fail();
  for(const collection of [raw.departments,raw.aisles,raw.team])if(new Set(collection.map(x=>x.id)).size!==collection.length)fail();
  if(!isObj(raw.settings)||!isObj(raw.settings.routines)||!isObj(raw.settings.rfid)||!windowValid(raw.settings.zoneWindow)||!list(raw.settings.reshopWindows,20)||!raw.settings.reshopWindows.every(windowValid)||!days(raw.settings.topstockDays))fail();
+ if(raw.settings.routineOrder!=null&&(!list(raw.settings.routineOrder,ROUTINES.length)||raw.settings.routineOrder.length!==ROUTINES.length||new Set(raw.settings.routineOrder).size!==ROUTINES.length||raw.settings.routineOrder.some(id=>!ROUTINES.some(r=>r.id===id))))fail();
  if(raw.settings.routineSort!==undefined&&!['priority','library'].includes(raw.settings.routineSort))fail();
  for(const r of ROUTINES){const v=raw.settings.routines[r.id];if(!isObj(v)||typeof v.enabled!=='boolean'||!num(v.minutes,5,480)||!days(v.days)||(v.priority!==undefined&&!Object.hasOwn(PRIORITIES,v.priority))||!limitsValid(v))fail();}
  if(Object.values(raw.settings.rfid).some(r=>!isObj(r)||typeof r.enabled!=='boolean'||!days(r.days)))fail();

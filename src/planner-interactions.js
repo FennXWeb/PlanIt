@@ -78,3 +78,37 @@ export function installPlannerInteractions(hooks){
  window.addEventListener('blur',cancel);window.addEventListener('resize',cancel);document.addEventListener('scroll',()=>closeMenu(),true);
  return {cancel,isInteracting:()=>!!gesture||!!menu};
 }
+
+export function installRoutineOrdering({save}){
+ let drag=null;
+ const ids=list=>[...list.querySelectorAll('[data-routine-id]')].map(row=>row.dataset.routineId);
+ const finish=commit=>{
+  if(!drag)return;const {list,original,row}=drag;drag=null;row.classList.remove('routine-moving');
+  if(!list.isConnected)return;
+  const order=ids(list);
+  if(!commit){for(const id of original)list.append(list.querySelector(`[data-routine-id="${id}"]`));}
+  else if(order.some((id,i)=>id!==original[i]))save(order);
+ };
+ document.addEventListener('pointerdown',event=>{
+  const handle=event.target.closest?.('.routine-handle');if(!handle||event.button!==0||!event.isPrimary)return;
+  const row=handle.closest('[data-routine-id]'),list=row.parentElement;
+  drag={row,list,original:ids(list),pointer:event.pointerId};handle.setPointerCapture(event.pointerId);row.classList.add('routine-moving');event.preventDefault();
+ });
+ document.addEventListener('pointermove',event=>{
+  if(!drag||event.pointerId!==drag.pointer)return;event.preventDefault();
+  const rows=[...drag.list.children].filter(row=>row!==drag.row);
+  const before=rows.find(row=>{const box=row.getBoundingClientRect();return event.clientY<box.top+box.height/2;});
+  drag.list.insertBefore(drag.row,before||null);
+  if(event.clientY<70)window.scrollBy(0,-16);else if(event.clientY>innerHeight-70)window.scrollBy(0,16);
+ },{passive:false});
+ document.addEventListener('pointerup',event=>{if(drag&&event.pointerId===drag.pointer)finish(true);});
+ document.addEventListener('pointercancel',()=>finish(false));window.addEventListener('blur',()=>finish(false));
+ document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){finish(false);return;}
+  const handle=event.target.closest?.('.routine-handle');if(!handle||!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+  event.preventDefault();const row=handle.closest('[data-routine-id]'),list=row.parentElement,order=ids(list),at=order.indexOf(row.dataset.routineId);
+  const to=event.key==='Home'?0:event.key==='End'?order.length-1:Math.max(0,Math.min(order.length-1,at+(event.key==='ArrowUp'?-1:1)));
+  if(to===at)return;order.splice(at,1);order.splice(to,0,row.dataset.routineId);save(order);
+  document.querySelector(`[data-routine-id="${row.dataset.routineId}"] .routine-handle`)?.focus();
+ });
+}

@@ -54,3 +54,14 @@
 .planner-context-menu button:hover,.planner-context-menu button:focus{background:#edf5e8;outline:none}
 .planner-context-menu .danger{color:#a33c34}
 @media print{.planner-context-menu,.planner-drag-label,.planner-drop-preview{display:none}}
+
+/* A compact, single-column routine priority list. */
+.routine-list{display:flex;flex-direction:column}
+.routine-order-row{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--border,#e6e8e5);background:var(--surface,#fff)}
+.routine-order-row:last-child{border-bottom:0}
+.routine-handle{display:flex;align-items:center;gap:8px;flex-shrink:0;padding:12px 6px;border:0;background:transparent;color:inherit;cursor:grab;touch-action:none;font-size:20px}
+.routine-handle span{font-size:12px;min-width:18px;color:#69746e}
+.routine-row-config{display:flex;align-items:center;gap:18px;flex:1;min-width:0;border:0;background:transparent;text-align:left;padding:8px 0;color:inherit;cursor:pointer}
+.routine-row-config b{width:160px;flex-shrink:0}.routine-row-config>span{flex:1;font-size:12px;color:#69746e}.routine-row-config small{max-width:240px;font-size:12px;color:#48765e}
+.routine-moving{background:#edf6ef;box-shadow:0 2px 12px #203b2420;outline:2px solid #76a185;z-index:1}
+@media(max-width:850px){.routine-row-config{display:block}.routine-row-config b,.routine-row-config small{display:block;width:auto;max-width:none}.routine-row-config>span{display:none}.routine-order-row{gap:8px;padding:8px 12px}}

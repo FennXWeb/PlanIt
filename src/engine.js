@@ -52,12 +52,12 @@ function freeRanges(shift,reservations,task,notBefore=0){
  return result;
 }
 function allocate(ranges,minutes){const segments=[];let left=minutes;for(const r of ranges){const length=Math.min(left,r.end-r.start);if(length>0){segments.push({start:r.start,end:r.start+length});left-=length;}if(!left)break;}return left===0?segments:null;}
-export function scheduleDay(state,day,{notBefore=0}={}){
+export function scheduleDay(state,day,{notBefore=0,reflowStarted=false}={}){
  const tasks=structuredClone(day.tasks),reserved=Object.fromEntries(day.shifts.map(s=>[s.personId,[]]));
  const loads=Object.fromEntries(day.shifts.map(s=>[s.personId,0])),topLoads={};
  const warnings=[];
  for(const t of tasks){
-  if(t.status==='done'||t.status==='in-progress'||t.locked){
+  if(t.status==='done'||t.status==='in-progress'&&!reflowStarted||t.locked){
    for(const seg of t.segments||[]){if(reserved[t.assignedTo]){reserved[t.assignedTo].push(seg);loads[t.assignedTo]+=seg.end-seg.start;}}
   } else {t.segments=[];t.assignedTo='';t.unscheduledReason='';}
   if(t.kind==='topstock'&&t.assignedTo)topLoads[t.assignedTo]=(topLoads[t.assignedTo]||0)+1;
@@ -65,11 +65,12 @@ export function scheduleDay(state,day,{notBefore=0}={}){
  const fixedOutsideLimits=tasks.filter(t=>t.status!=='done'&&(t.locked||t.status==='in-progress')&&t.segments.some(s=>s.start<(t.earliestStart??0)||s.end>(t.deadline??2880))).length;
  if(fixedOutsideLimits)warnings.push(`${fixedOutsideLimits} pinned or started task${fixedOutsideLimits===1?' is':'s are'} outside required routine times. Adjust the task details manually.`);
  const zonePolicy=routinePolicy(state.settings,'zone');
- const work=tasks.filter(t=>t.status!=='done'&&t.status!=='in-progress'&&!t.locked).sort((a,b)=>{
+ const work=tasks.filter(t=>t.status!=='done'&&(t.status!=='in-progress'||reflowStarted)&&!t.locked).sort((a,b)=>{
   // Priority first, then earliest hard deadline. A tour zone inherits at least the
   // routine's scheduling priority so automatic aisle fill cannot displace it.
   const tourZone=t=>t.kind==='zone'&&t.source==='tour';
-  const rank=t=>tourZone(t)?Math.min(PRIORITIES[t.priority]??2,PRIORITIES[zonePolicy.priority]):PRIORITIES[t.priority]??2;
+  const routineRank=t=>{const id=t.kind==='outs'?'rfid':t.kind,index=state.settings.routineOrder?.indexOf(id)??-1;return index<0?null:1+(index+1)/(state.settings.routineOrder.length+1);};
+  const rank=t=>tourZone(t)?Math.min(PRIORITIES[t.priority]??2,routineRank(t)??PRIORITIES[zonePolicy.priority]):t.source==='routine'||t.source==='carry'?routineRank(t)??PRIORITIES[t.priority]??2:PRIORITIES[t.priority]??2;
   const due=t=>tourZone(t)?Math.min(t.deadline??2880,zonePolicy.deadline??2880):t.deadline??2880;
   const score=t=>(t.source==='tour'?-30:0)+(t.window?-20:0)+(t.kind==='zone'&&t.source==='routine'?15:0);
   return rank(a)-rank(b)||due(a)-due(b)||score(a)-score(b)||((a.window?.end??3000)-(b.window?.end??3000));
@@ -90,7 +91,7 @@ export function scheduleDay(state,day,{notBefore=0}={}){
   else {t.unscheduledReason=t.deadline!=null?`Cannot finish by ${clockLabel(t.deadline)} with eligible staff, breaks, task windows, and higher-priority work.`:t.earliestStart!=null?`Not enough eligible time after ${clockLabel(t.earliestStart)} within the shift and task window.`:t.assignee?'The selected person is unavailable or has insufficient time.':t.window?'No eligible shift has enough free time in this task’s window.':'Not enough eligible shift capacity.';}
  }
  // Automatic zoning is a best-effort fill, not an obligation for every aisle today.
- const result=tasks.filter(t=>!(t.kind==='zone'&&t.source==='routine'&&!t.assignedTo&&t.status==='pending'));
+ const result=tasks.filter(t=>!(t.kind==='zone'&&t.source==='routine'&&!t.assignedTo&&t.status==='pending'&&!t.progress&&!t.locked));
  const automaticZones=tasks.filter(t=>t.kind==='zone'&&t.source==='routine');
  if(automaticZones.length&&!tasks.some(t=>t.kind==='zone'&&t.assignedTo)&&(automaticZones[0].deadline!=null||automaticZones[0].earliestStart!=null))warnings.push('No automatic zoning fits the required routine times. Adjust the zoning window, deadline, or staffing.');
  const count=result.filter(t=>t.status!=='done'&&!t.segments?.length).length;
@@ -178,7 +179,27 @@ export function manualPlacement(state,day,taskId,personId,start){
 export function movePlannerTask(state,day,taskId,personId,start){
  if(day.reviewed)throw Error('This day is read-only after follow-up.');
  if(day.tasks.find(t=>t.id===taskId)?.status!=='pending')throw Error('Only tasks that have not started can be dragged. Use task details for started or completed work.');
- return manualPlacement(state,day,taskId,personId,start);
+ // Pending work, including previous pins, can yield to a deliberate drop.
+ return manualPlacement(state,{...day,tasks:day.tasks.filter(t=>t.id===taskId||t.status!=='pending')},taskId,personId,start);
+}
+export function replanPlannerMove(state,day,taskId,personId,start){
+ const moved=movePlannerTask(state,day,taskId,personId,start),next=structuredClone(day);
+ next.tasks=next.tasks.map(t=>t.id===taskId?moved:t.status==='pending'&&t.assignedTo===personId&&t.segments.some(s=>overlap(s,moved.segments[0]))?{...t,locked:false}:t);
+ return scheduleDay(state,next);
+}
+export function reconfigureShifts(state,day,shifts){
+ if(day.reviewed)throw Error('This day is read-only after follow-up.');
+ const error=validateShifts(shifts);if(error)throw Error(error);
+ const next=structuredClone(day);next.shifts=structuredClone(shifts);
+ for(const task of next.tasks){
+  if(task.status==='done')continue;
+  task.locked=false;
+  if(task.assignee&&!shifts.some(s=>s.personId===task.assignee))task.assignee='';
+ }
+ const result=scheduleDay(state,next,{reflowStarted:true});
+ const historical=result.tasks.some(t=>t.status==='done'&&t.segments.some(seg=>{const shift=shifts.find(s=>s.personId===t.assignedTo);return !shift||seg.start<shiftBounds(shift).start||seg.end>shiftBounds(shift).end||pauses(shift).some(p=>overlap(p,seg));}));
+ if(historical)result.warnings.push('Completed work keeps its recorded times, even when those times fall outside the updated shifts.');
+ return result;
 }
 export function dayMetrics(day){
  if(!day)return {total:0,done:0,percent:0,minutes:0,capacity:0,scheduled:0,unassigned:0};
