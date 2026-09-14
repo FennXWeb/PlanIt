@@ -1,4 +1,5 @@
 @import url('./src/theme.css');
+.schedule-task.compact{padding:0 3px!important;justify-content:center}.schedule-task.compact b{line-height:1!important}
 .nav-count{color:#284222}
 .mobile-settings{display:none!important}
 @media(max-width:760px){.heading-actions .date-picker{flex:1 0 100%!important;justify-content:center}.heading-actions .date-picker input{width:150px}.sidebar nav{position:fixed;bottom:0;left:0;right:0;padding:8px 10px;margin:0!important;background:#142824;z-index:40;border-top:1px solid #3c5242}.sidebar nav button{flex-direction:column;gap:5px!important;min-width:80px;padding:6px 8px!important;font-size:.75rem!important}.sidebar nav button[data-view="aisles"],.sidebar nav button[data-view="routines"]{display:none}.mobile-settings{display:flex!important}.workspace{padding-bottom:70px}.app-footer{padding-bottom:30px!important}#toast{bottom:80px!important}.sidebar{padding-bottom:15px!important}}
