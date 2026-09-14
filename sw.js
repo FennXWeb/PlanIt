@@ -1,7 +1,8 @@
 // Only the public app shell is cached. Google authorization and private cloud requests are never cached.
 const CACHE='planit-shell-v1';
 const FILES=['./','./index.html','./privacy.html','./styles.css','./favicon.svg','./manifest.webmanifest','./src/app.js','./src/theme.css','./src/welcome.js','./src/data.js','./src/engine.js','./src/storage.js','./src/demo.js','./src/cloud.js','./src/google-drive.js','./src/cloud-config.js','./src/planner-interactions.js'];
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES))));
+self.addEventListener('message',event=>{if(event.data?.type==='PLANIT_ACTIVATE_UPDATE')event.waitUntil(self.skipWaiting());});
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(url=>new Request(url,{cache:'reload'}))))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('planit-shell-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
  const url=new URL(event.request.url),scope=new URL(self.registration.scope);
