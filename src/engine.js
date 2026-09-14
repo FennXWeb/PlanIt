@@ -175,6 +175,11 @@ export function manualPlacement(state,day,taskId,personId,start){
  if(!Number.isFinite(start)||start<bounds.start||end>bounds.end||blocks.some(b=>overlap(b,{start,end})))throw Error('That time overlaps another task, a break, or falls outside the shift, task window, or required start / finish times.');
  return {...task,assignee:personId,assignedTo:personId,segments:[{start,end}],locked:true,unscheduledReason:''};
 }
+export function movePlannerTask(state,day,taskId,personId,start){
+ if(day.reviewed)throw Error('This day is read-only after follow-up.');
+ if(day.tasks.find(t=>t.id===taskId)?.status!=='pending')throw Error('Only tasks that have not started can be dragged. Use task details for started or completed work.');
+ return manualPlacement(state,day,taskId,personId,start);
+}
 export function dayMetrics(day){
  if(!day)return {total:0,done:0,percent:0,minutes:0,capacity:0,scheduled:0,unassigned:0};
  const total=day.tasks.length,done=day.tasks.filter(t=>t.status==='done').length;
