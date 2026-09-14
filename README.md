@@ -4,8 +4,8 @@ A device-local daily planning app for Walmart team leads. Built for GitHub Pages
 
 ## Use
 
-1. Set up your name, responsible departments, aisle labels, top-stock checkboxes, and associates.
-2. Enable and configure your routines. Department labels are editable public reference data, not a live Walmart directory.
+1. Set up your name, responsible departments, aisle labels, optional aisle descriptions, top-stock checkboxes, and associates. Descriptions can also be edited in Aisles & departments and appear in aisle task details.
+2. Enable and configure your routines. Each has an urgent, high, normal, or low priority, an estimate, and optional **Start no earlier than** / **Required finish by** limits. Sort the library by priority or its default order. Department labels are editable public reference data, not a live Walmart directory.
 3. Start a day with the people working, shifts, meal times, and optional rest breaks.
 4. Use the by-the-hour timeline or list to edit estimates, assign work, record progress and actual time, or pin a start time. Dragging a task also pins it; overlapping placements are rejected. On phones, use task details.
 5. Conduct a tour and complete it to integrate priorities. A zoning note replaces the automatic assignment for the same aisle. Started, completed, and pinned work stays in place.
@@ -14,14 +14,16 @@ A device-local daily planning app for Walmart team leads. Built for GitHub Pages
 ## Scheduling rules
 
 - One person per task, split into segments around meals, rest breaks, or occupied time when necessary. A task with insufficient total capacity remains visibly unscheduled.
-- Urgent and high priorities precede normal and low priorities. Time windows and tour priorities are favored within those levels. Assignments balance available workload; explicit assignees and department restrictions are respected.
+- Urgent and high priorities precede normal and low priorities. Within a priority, the earliest required finish comes first, then tour work and constrained windows. Assignments balance available workload; explicit assignees and department restrictions are respected. The planner list can be sorted by scheduled time, priority, or required finish time; list sorting does not rearrange the schedule.
+- Start and finish limits are optional independently. They intersect shift availability, meals, breaks, and any zoning / reshop windows. A **Required finish by** is a hard planning boundary: tasks that cannot fit remain unscheduled with an explanation, rather than being placed late. Higher-priority work can leave lower-priority deadlines without capacity. The planner uses a priority-based allocation heuristic, not a guarantee of a globally optimal schedule.
+- Limits use the plan date. Select **Following day** for a time after midnight on an overnight plan; midnight on **Plan day** is the beginning of that date. Manual placement and replanning respect the same limits. Pinned or started work remains fixed; conflicting recorded limits produce a warning.
 - Top-stock aisles are spread over the selected work days from Monday through Friday. Completed aisles are counted once in that calendar week. Each day recalculates the remaining target. Friday attempts all outstanding aisles. A Friday finish depends on enough staffing; no impossible assignment is silently claimed complete.
-- Zoning fills the configured window with as many whole-aisle estimates as capacity permits. Aisles without a completed zone come first, then the oldest completed zones. Partial zones are not treated as completed.
+- Zoning fills the configured window with as many whole-aisle estimates as capacity permits. Aisles without a completed zone come first, then the oldest completed zones. Partial zones are not treated as completed. New tour zones inherit zoning time limits and receive at least the routine's scheduling precedence, so automatic aisle fill cannot displace a tour choice. If required limits prevent all automatic zoning, the planner displays a warning.
 - RFID scans use a separate weekday calendar for each participating department. Non-RFID departments receive Tuesday deep outs when the scan routine is enabled.
 - Reshops create one task per configured window. Other defaults include Pinpoint, bin overstock, feature to home, price changes, digital tag errors, item swaps, and feature discrepancies.
-- Repeating tasks have weekday rules, optional assignees, and optional time windows. Modular categories have departments, category numbers, descriptions, section counts, estimates, and optional due dates. Undated or due categories enter new plans when Modulars is enabled.
-- Follow-up is mandatory before the next plan; reviewed days are read-only. New plans proceed chronologically. Carryover retains the original window and priority, reduces the estimate according to recorded progress, and avoids duplicating the same aisle, repeating task, or modular category.
-- Routine changes apply to future days. **Apply to current day** regenerates pending automatic work while keeping completed, started, pinned, manually created, and tour work.
+- Repeating tasks have weekday rules, optional assignees, optional time windows, and the same independent start / finish limits. Modular categories have departments, category numbers, descriptions, section counts, estimates, and optional due dates. Undated or due categories enter new plans when Modulars is enabled, using the Modulars routine's priority and daily time limits. RFID and Tuesday deep outs both use the scan routine's priority and limits.
+- Follow-up is mandatory before the next plan; reviewed days are read-only. New plans proceed chronologically. Carryover retains the original window, priority, and time limits (relative to the new plan date), reduces the estimate according to recorded progress, and avoids duplicating the same aisle, repeating task, or modular category.
+- Routine changes apply to future days. **Apply to current day** regenerates pending automatic work with the new settings while keeping completed, started, pinned, partially completed, carried, manually created, and tour work. Existing task details can override their own priority and limits.
 
 ## Metrics
 
@@ -34,6 +36,8 @@ A device-local daily planning app for Walmart team leads. Built for GitHub Pages
 ## Privacy and storage
 
 Workspace records live in `localStorage` under `planit.workspace.v1`, with the previous valid save in `planit.recovery.v1`. They never go in requests, GitHub commits, the service-worker cache, URLs, or telemetry. The content security policy blocks page connection requests. Public app files are cached for offline use after the first visit. Updates activate when all app tabs close.
+
+Older v1 workspaces and backups receive empty aisle descriptions and optional limits, plus the previous default routine priorities. Names, saved task history, and existing plans are preserved during migration.
 
 Browser storage is local, not encrypted. Someone using the same browser profile can access it. Clearing browser data removes it. Export a private JSON backup from Settings; restoring validates its schema before asking to replace the workspace. If storage is unavailable, the app clearly identifies its temporary workspace. Multiple tabs cannot silently overwrite a newer revision.
 

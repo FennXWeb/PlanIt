@@ -17,6 +17,10 @@ export const ROUTINES = [
  {id:'modular',name:'Modulars',minutes:60,description:'Add pending modular categories to the daily plan.',enabled:false}
 ];
 export const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+export const PRIORITIES = {urgent:0,high:1,normal:2,low:3};
+export const defaultRoutinePriority = id => ['topstock','rfid'].includes(id)?'high':id==='zone'?'low':'normal';
+export const routinePolicy = (settings,id) => {const cfg=settings.routines[id];return {priority:cfg?.priority??defaultRoutinePriority(id),earliestStart:cfg?.earliestStart??null,deadline:cfg?.deadline??null};};
+export const comparePriority = (a,b) => (PRIORITIES[a.priority]??2)-(PRIORITIES[b.priority]??2)||(a.deadline??2880)-(b.deadline??2880);
 export const SOURCES = [
  {title:'Department reference',publisher:'SPS Commerce / SupplyPike · July 28, 2020',url:'https://www.spscommerce.com/community/articles/walmart-departments-and-categories',note:'Public supplier reference for department numbers. Labels are a starter list and may be historical; confirm local mappings.'},
  {title:'Walmart product taxonomy',publisher:'Walmart supplier documentation',url:'https://developer.walmart.com/suppliers/docs/product-type-taxonomy-overview',note:'Explains how product types map to Walmart departments. Live supplier data requires authorized access; PlanIt does not connect to it.'},
@@ -32,5 +36,5 @@ export const toMinutes = time => {const [h,m]=time.split(':').map(Number);return
 export const toTime = minutes => `${String(Math.floor(minutes/60)%24).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;
 export const clockLabel = n => `${Math.floor(n/60)%12||12}:${String(n%60).padStart(2,'0')} ${Math.floor(n/60)%24<12?'am':'pm'}${n>=1440?' +1':''}`;
 export const duration = n => n>=60 ? `${Math.floor(n/60)}h${n%60?' '+n%60+'m':''}` : `${n}m`;
-export function initialState(){return {version:1,revision:0,profile:null,departments:[],aisles:[],team:[],days:[],repeats:[],modulars:[],settings:{routines:Object.fromEntries(ROUTINES.map(r=>[r.id,{enabled:r.enabled,minutes:r.minutes,days:[0,1,2,3,4,5,6]}])),rfid:{},zoneWindow:{start:840,end:960},reshopWindows:[{start:600,end:660},{start:780,end:840}],topstockDays:[1,2,3,4,5]},tourDraft:[]};}
+export function initialState(){return {version:1,revision:0,profile:null,departments:[],aisles:[],team:[],days:[],repeats:[],modulars:[],settings:{routines:Object.fromEntries(ROUTINES.map(r=>[r.id,{enabled:r.enabled,minutes:r.minutes,days:[0,1,2,3,4,5,6],priority:defaultRoutinePriority(r.id),earliestStart:null,deadline:null}])),routineSort:'priority',rfid:{},zoneWindow:{start:840,end:960},reshopWindows:[{start:600,end:660},{start:780,end:840}],topstockDays:[1,2,3,4,5]},tourDraft:[]};}
 export const deptName = (state,id) => state.departments.find(d=>d.id===id)?.name || DEPARTMENTS.find(d=>d.id===id)?.name || 'All departments';
